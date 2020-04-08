@@ -6,5 +6,6 @@ Served trained model to Java Spring for Java Spring for easy GUI.
 By serving the trained model to web application, make this model available to other users.
 
 ## Simple UI
-![](image/main.png)
-![](image/false.png)
+![](docs/main.png)
+![](docs/true.png)
+![](docs/false.png)
