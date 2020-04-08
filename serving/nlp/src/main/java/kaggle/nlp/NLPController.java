@@ -12,6 +12,7 @@ import java.util.List;
 public class NLPController {
 
     private NLPService nlpService;
+
     @Autowired
     public NLPController(NLPService nlpnService) {
         this.nlpService = nlpnService;
@@ -25,7 +26,7 @@ public class NLPController {
     @RequestMapping(value = "/save", method = RequestMethod.POST)
     public String sendSentence(String message, Model model) {
 
-        Boolean isReal = nlpService.classify("hello");
+        Boolean isReal = nlpService.classify(message);
         String msg = isReal ? "This is real disaster message" : "This is not real disaster message";
         model.addAttribute("message", msg);
 

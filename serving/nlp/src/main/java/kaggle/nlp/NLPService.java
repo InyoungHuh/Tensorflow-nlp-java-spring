@@ -6,11 +6,18 @@ import org.tensorflow.Session;
 import org.tensorflow.Tensor;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 @Service
 public class NLPService {
     private final Session modelBundleSession;
+    private static Lemmatisation lemma;
 
     private final static String FEED_OPERATION = "serving_default_embedding_input";
     private final static String FETCH_OPERATION_CLASS_ID = "StatefulPartitionedCall";
@@ -18,18 +25,52 @@ public class NLPService {
     @Autowired
     public NLPService() {
         this.modelBundleSession = SavedModelBundle.load("src/main/resources/model/disaster", "serve").session();
+        this.lemma = new Lemmatisation();
     }
-    private static Tensor createInputTensor(String sentence){
-        // order of the data on the input: PetalLength, PetalWidth, SepalLength, SepalWidth
+
+    private static HashMap<String, Integer> loadBagOfWords() {
+        HashMap<String, Integer> bow = new HashMap<>();
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader(new FileReader("src/main/resources/model/bow.txt"));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            String line = br.readLine();
+            while (line != null) {
+                String[] strArr = line.split(" ");
+                bow.put(strArr[0], Integer.parseInt(strArr[1]));
+                line = br.readLine();
+            }
+        } catch (IOException e) {
+            System.out.println("cannot load bow file");
+        }
+        return bow;
+    }
+    private static Tensor createInputTensor(String sentence) {
         // (taken from the saved_model, node dnn/input_from_feature_columns/input_layer/concat)
-        float[] input = {     0.0f,0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,
-                0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,  253.0f, 1665.0f, 7976.0f, 4935.0f};
+        List<String> lemmaStr = lemma.lemmatize(sentence);
+        HashMap<String, Integer> bow = loadBagOfWords();
+
+        //inputLen depends on model
+        int inputLen = 23;
+        float[] input = new float[23];
+        
+        List<Integer> wordToIdx = new ArrayList<>();
+        for(String lemma : lemmaStr)
+            if(bow.containsKey(lemma)) wordToIdx.add(bow.get(lemma));
+
+        for(int i = inputLen - wordToIdx.size(), j=0; i< inputLen; i++, j++)
+            input[i] = wordToIdx.get(j);
+
         float[][] data = new float[1][input.length];
         data[0] = input;
         return Tensor.create(data);
     }
 
-    public Boolean classify(String sentence) {
+    public Boolean classify(String sentence){
         Tensor inputTensor = NLPService.createInputTensor(sentence);
 
         List<Tensor<?>> result = this.modelBundleSession.runner()
